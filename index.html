@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자음 검색기 - Jaum Search</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --container-bg: #ffffff;
+            --text-color: #212529;
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --border-color: #dee2e6;
+            --chip-bg: #e9ecef;
+            --chip-active-bg: #007bff;
+            --chip-active-text: #ffffff;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --primary-color: #378afe;
+            --secondary-color: #a0a0a0;
+            --border-color: #333333;
+            --chip-bg: #333333;
+            --chip-active-bg: #378afe;
+            --chip-active-text: #ffffff;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            color: var(--text-color);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .search-box {
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            background-color: var(--bg-color);
+            padding-bottom: 10px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1.1rem;
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
+            background-color: var(--container-bg);
+            color: var(--text-color);
+            outline: none;
+            box-shadow: var(--card-shadow);
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+        }
+
+        .filters {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 5px 0 15px 0;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-color) transparent;
+        }
+
+        .filters::-webkit-scrollbar {
+            height: 5px;
+        }
+
+        .filters::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 10px;
+        }
+
+        .chip {
+            padding: 8px 16px;
+            background-color: var(--chip-bg);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            user-select: none;
+            border: none;
+            color: var(--text-color);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .chip.active {
+            background-color: var(--chip-active-bg);
+            color: var(--chip-active-text);
+        }
+
+        .results-info {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px;
+        }
+
+        .card {
+            background-color: var(--container-bg);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .card .chosung {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .card .word {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px 0;
+            color: var(--secondary-color);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .results-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+            body {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>자음 검색기</h1>
+            <button class="theme-toggle" id="themeToggle">
+                <span id="themeIcon">🌙</span> <span id="themeText">다크 모드</span>
+            </button>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="초성을 입력하세요" autofocus autocomplete="off">
+        </div>
+
+        <div class="filters" id="categoryFilters">
+            <!-- Category chips will be injected here -->
+        </div>
+
+        <div class="results-info" id="resultsInfo">
+            데이터를 불러오는 중...
+        </div>
+
+        <div class="results-grid" id="resultsGrid">
+            <!-- Search results will be injected here -->
+        </div>
+    </div>
+
+    <script>
+        let jaumData = {};
+        let selectedCategory = null;
+        let currentQuery = '';
+        let totalWordsCount = 0;
+
+        const searchInput = document.getElementById('searchInput');
+        const categoryFilters = document.getElementById('categoryFilters');
+        const resultsGrid = document.getElementById('resultsGrid');
+        const resultsInfo = document.getElementById('resultsInfo');
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const themeText = document.getElementById('themeText');
+
+        // Normalization: Remove spaces and decompose compound consonants (Double consonants like ㄲ are NOT decomposed)
+        function normalize(text) {
+            if (!text) return '';
+            const decompositionMap = {
+                'ㄳ': 'ㄱㅅ', 'ㄵ': 'ㄴㅈ', 'ㄶ': 'ㄴㅎ', 'ㄺ': 'ㄹㄱ', 'ㄻ': 'ㄹㅁ', 'ㄼ': 'ㄹㅂ',
+                'ㄽ': 'ㄹㅅ', 'ㄾ': 'ㄹㅌ', 'ㄿ': 'ㄹㅍ', 'ㅀ': 'ㄹㅎ', 'ㅄ': 'ㅂㅅ'
+            };
+            let result = text.replace(/\s/g, ''); 
+            for (const [complex, decomposed] of Object.entries(decompositionMap)) {
+                result = result.split(complex).join(decomposed);
+            }
+            return result;
+        }
+
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                updateThemeUI(true);
+            }
+        }
+
+        function updateThemeUI(isDark) {
+            themeIcon.textContent = isDark ? '☀️' : '🌙';
+            themeText.textContent = isDark ? '라이트 모드' : '다크 모드';
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            if (isDark) {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+                updateThemeUI(false);
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+                updateThemeUI(true);
+            }
+        });
+
+        // Data loading
+        async function loadData() {
+            try {
+                const response = await fetch('jaum.json');
+                jaumData = await response.json();
+                
+                // Count total words
+                totalWordsCount = 0;
+                for (const category in jaumData) {
+                    for (const chosung in jaumData[category]) {
+                        totalWordsCount += jaumData[category][chosung].length;
+                    }
+                }
+                
+                updateResultsInfo();
+            } catch (error) {
+                console.error('Error loading jaum.json:', error);
+                resultsInfo.textContent = '데이터를 불러오는 데 실패했습니다.';
+            }
+        }
+
+        function updateResultsInfo() {
+            resultsInfo.textContent = `현재 ${totalWordsCount.toLocaleString()}개의 단어를 검색할 수 있어요! ✨`;
+        }
+
+        // Search logic
+        function search() {
+            const rawQuery = searchInput.value.trim();
+            if (!rawQuery) {
+                renderResults([]);
+                renderFilters([]);
+                updateResultsInfo();
+                renderHelp();
+                return;
+            }
+
+            // Extract Syllables (for Category filtering) and Consonants (for Chosung search)
+            let catQuery = '';
+            let choQuery = '';
+            
+            for (const char of rawQuery) {
+                if (char === ' ') continue;
+                const code = char.charCodeAt(0);
+                // Hangul Syllables range: AC00-D7A3
+                if (code >= 0xAC00 && code <= 0xD7A3) {
+                    catQuery += char;
+                } else {
+                    choQuery += char;
+                }
+            }
+
+            const normChoQuery = normalize(choQuery);
+            
+            const results = [];
+            const matchingCategories = new Set();
+            const categoryScores = {};
+
+            for (const category in jaumData) {
+                let catScore = 0;
+                
+                // Category Filtering
+                if (catQuery) {
+                    if (category === catQuery) {
+                        catScore = 1000;
+                    } else if (category.startsWith(catQuery)) {
+                        catScore = 500;
+                    } else if (category.includes(catQuery)) {
+                        catScore = 200;
+                    } else {
+                        // Skip categories that don't match the syllable hint
+                        continue;
+                    }
+                }
+
+                categoryScores[category] = catScore;
+                const chosungMap = jaumData[category];
+                
+                for (const rawChosung in chosungMap) {
+                    const normChosung = normalize(rawChosung);
+                    let choScore = 0;
+                    
+                    if (!normChoQuery) {
+                        // If no consonants entered, match all in the filtered category
+                        choScore = 1;
+                    } else if (normChosung === normChoQuery) {
+                        choScore = 100;
+                    } else if (normChosung.startsWith(normChoQuery)) {
+                        choScore = 50;
+                    } else if (normChosung.includes(normChoQuery)) {
+                        choScore = 10;
+                    }
+
+                    if (choScore > 0) {
+                        const finalScore = catScore + choScore;
+                        chosungMap[rawChosung].forEach(word => {
+                            results.push({
+                                word,
+                                rawChosung,
+                                category,
+                                score: finalScore
+                            });
+                        });
+                        matchingCategories.add(category);
+                    }
+                }
+            }
+
+            // Sort categories for the filter chips
+            const sortedCategories = Array.from(matchingCategories).sort((a, b) => {
+                const scoreA = categoryScores[a] || 0;
+                const scoreB = categoryScores[b] || 0;
+                if (scoreB !== scoreA) return scoreB - scoreA;
+                return a.localeCompare(b, 'ko');
+            });
+            
+            renderFilters(sortedCategories);
+
+            let finalResults = results;
+            if (selectedCategory) {
+                finalResults = results.filter(r => r.category === selectedCategory);
+            }
+
+            finalResults.sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score;
+                return a.word.localeCompare(b.word, 'ko');
+            });
+
+            renderResults(finalResults);
+            resultsInfo.textContent = `총 ${finalResults.length}개의 결과를 찾았습니다.`;
+        }
+
+        function renderHelp() {
+            resultsGrid.innerHTML = `
+                <div class="empty-state" style="grid-column: 1 / -1; text-align: left; padding: 20px; background: var(--container-bg); border-radius: 12px; border: 1px dashed var(--border-color);">
+                    <h3 style="margin-top:0;">💡 이렇게 검색해보세요!</h3>
+                    <p><b>1. 초성으로 찾기</b><br>예: <code>ㄴㅈㄱ</code> → <b>가전 | 냉장고</b></p>
+                    <p><b>2. 카테고리 + 초성 혼합</b><br>예: <code>마 ㅁㅍㅇ</code> 또는 <code>ㅁㅍㅇ마</code> → <b>마피아42 | 마피아</b></p>
+                    <p><b>3. 겹자음 입력</b><br><code>ㄻ</code> 처럼 입력해도 <code>ㄹㅁ</code>로 똑똑하게 찾아줍니다.</p>
+                    <p style="margin-bottom:0; color:var(--secondary-color); font-size:0.85rem;">* 실시간 결과 확인 및 카테고리 칩 필터링이 가능합니다.</p>
+                </div>
+            `;
+        }
+
+        function renderFilters(categories) {
+            categoryFilters.innerHTML = '';
+            
+            if (selectedCategory && !categories.includes(selectedCategory)) {
+                selectedCategory = null;
+            }
+
+            if (categories.length === 0) {
+                return;
+            }
+
+            categories.forEach(category => {
+                const btn = document.createElement('button');
+                btn.className = 'chip' + (selectedCategory === category ? ' active' : '');
+                btn.textContent = category;
+                btn.onclick = () => {
+                    if (selectedCategory === category) {
+                        selectedCategory = null;
+                    } else {
+                        selectedCategory = category;
+                    }
+                    search();
+                };
+                categoryFilters.appendChild(btn);
+            });
+        }
+
+        function renderResults(results) {
+            if (results.length === 0 && !searchInput.value.trim()) {
+                return;
+            }
+            
+            resultsGrid.innerHTML = '';
+            
+            if (results.length === 0) {
+                resultsGrid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;">검색 결과가 없습니다.</div>';
+                return;
+            }
+
+            results.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <span class="chosung">${item.category} | ${item.rawChosung}</span>
+                    <span class="word">${item.word}</span>
+                `;
+                resultsGrid.appendChild(card);
+            });
+        }
+
+        // Event listeners
+        searchInput.addEventListener('input', () => {
+            search();
+        });
+
+        // Initialize
+        initTheme();
+        loadData().then(() => renderHelp());
+    </script>
+</body>
+</html>
